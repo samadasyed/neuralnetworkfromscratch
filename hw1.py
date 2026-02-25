@@ -119,4 +119,4 @@ class NeuralNetwork:
 
         return loss_history
 
-                
+#This ends the base configuration spec
