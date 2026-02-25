@@ -73,3 +73,50 @@ class NeuralNetwork:
         # Hidden layer gradients
         self.dW1 = self.input.T @ self.dz1     # gradient w.r.t. W1: (input_size, hidden_size)
         self.db1 = np.sum(self.dz1, axis=0, keepdims=True)  # sum across batch: (1, hidden_size)
+
+
+    def train(self, X, y, epochs, learning_rate, loss='cross_entropy'): 
+
+        batch_size = 32
+        loss_history = []
+
+        for epoch in range(epochs):
+            # shuffle the data
+            indices = np.random.permutation(len(X))
+            X_shuffled = X[indices]
+            y_shuffled = y[indices]
+
+            epoch_loss = 0  # reset loss accumulator each epoch
+
+            # split into mini-batches
+            for i in range(0, len(X), batch_size):
+                X_batch = X_shuffled[i:i + batch_size]
+                y_batch = y_shuffled[i:i + batch_size]
+
+                z2 = self.forward(X_batch)
+
+                if loss == 'cross_entropy':
+                    exp = np.exp(z2 - np.max(z2, axis=1, keepdims=True))
+                    probs = exp / np.sum(exp, axis=1, keepdims=True)
+                    dL_dz2 = probs.copy()
+                    dL_dz2[range(len(X_batch)), y_batch] -= 1
+                    dL_dz2 /= len(X_batch)
+                    epoch_loss += -np.sum(np.log(probs[range(len(X_batch)), y_batch] + 1e-8))
+
+                elif loss == 'mse':
+                    dL_dz2 = (z2 - y_batch) / len(X_batch)
+                    epoch_loss += np.sum((z2 - y_batch) ** 2)
+
+                self.backward(dL_dz2)
+
+                self.W1 -= learning_rate * self.dW1
+                self.b1 -= learning_rate * self.db1
+                self.W2 -= learning_rate * self.dW2
+                self.b2 -= learning_rate * self.db2
+
+            # record average loss for this epoch
+            loss_history.append(epoch_loss / len(X))
+
+        return loss_history
+
+                
