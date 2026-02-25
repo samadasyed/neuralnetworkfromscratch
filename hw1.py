@@ -199,3 +199,162 @@ for h in hidden_sizes:
     test_loss = -np.mean(np.log(probs[range(len(X_test)), y_test] + 1e-8))
     accuracy = np.mean(predict(nn, X_test) == y_test)
     print(f"  Hidden={h}: test loss = {test_loss:.4f}, accuracy = {accuracy * 100:.1f}%")
+
+# ── California Housing Experiment ─────────────────────────────────────────────
+
+# Load dataset
+housing_url = "https://raw.githubusercontent.com/ageron/handson-ml2/master/datasets/housing/housing.csv"
+housing_df = pd.read_csv(housing_url)
+
+# Drop rows with missing values
+housing_df = housing_df.dropna()
+
+# One-hot encode the categorical column
+housing_df = pd.get_dummies(housing_df, columns=['ocean_proximity'])
+
+# Separate features and target
+target = 'median_house_value'
+feature_cols = [c for c in housing_df.columns if c != target]
+X_housing = housing_df[feature_cols].values.astype(float)
+y_housing = housing_df[target].values.astype(float).reshape(-1, 1)
+
+# Standardize input features to zero mean and variance 1
+X_mean = X_housing.mean(axis=0)
+X_std = X_housing.std(axis=0) + 1e-8  # avoid division by zero
+X_housing = (X_housing - X_mean) / X_std
+
+# Standardize target
+y_mean = y_housing.mean()
+y_std = y_housing.std()
+y_housing = (y_housing - y_mean) / y_std
+
+# 80/20 train/test split
+np.random.seed(0)
+indices = np.random.permutation(len(X_housing))
+split = int(0.8 * len(X_housing))
+X_htrain, X_htest = X_housing[indices[:split]], X_housing[indices[split:]]
+y_htrain, y_htest = y_housing[indices[:split]], y_housing[indices[split:]]
+
+input_size = X_housing.shape[1]  # number of features after one-hot encoding
+
+# ── 2a: 5 hidden units, 10 epochs, learning rates ────────────────────────────
+learning_rates = [1, 0.1, 1e-2, 1e-3, 1e-8]
+
+plt.figure()
+for lr in learning_rates:
+    nn = NeuralNetwork(input_size=input_size, hidden_size=5, output_size=1)
+    loss_history = nn.train(X_htrain, y_htrain, epochs=10, learning_rate=lr, loss='mse')
+    plt.plot(loss_history, label=f"LR={lr}")
+
+plt.title("Housing Training Loss by Learning Rate (5 hidden units, 10 epochs)")
+plt.xlabel("Epoch")
+plt.ylabel("Average MSE Loss")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# ── 2c: average test MSE for each LR ─────────────────────────────────────────
+print("2c. Test MSE by learning rate:")
+for lr in learning_rates:
+    nn = NeuralNetwork(input_size=input_size, hidden_size=5, output_size=1)
+    nn.train(X_htrain, y_htrain, epochs=10, learning_rate=lr, loss='mse')
+    z2 = nn.forward(X_htest)
+    test_loss = np.mean((z2 - y_htest) ** 2)
+    print(f"  LR={lr}: test MSE = {test_loss:.4f}")
+
+# ── 2d: LR=1e-2, 10 epochs, 4 hidden sizes ───────────────────────────────────
+hidden_sizes = [2, 8, 16, 32]
+
+plt.figure()
+for h in hidden_sizes:
+    nn = NeuralNetwork(input_size=input_size, hidden_size=h, output_size=1)
+    loss_history = nn.train(X_htrain, y_htrain, epochs=10, learning_rate=1e-2, loss='mse')
+    plt.plot(loss_history, label=f"Hidden={h}")
+
+plt.title("Housing Training Loss by Hidden Size (LR=1e-2, 10 epochs)")
+plt.xlabel("Epoch")
+plt.ylabel("Average MSE Loss")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# ── 2e: test MSE for each hidden size ────────────────────────────────────────
+print("2e. Test MSE by hidden size:")
+for h in hidden_sizes:
+    nn = NeuralNetwork(input_size=input_size, hidden_size=h, output_size=1)
+    nn.train(X_htrain, y_htrain, epochs=10, learning_rate=1e-2, loss='mse')
+    z2 = nn.forward(X_htest)
+    test_loss = np.mean((z2 - y_htest) ** 2)
+    print(f"  Hidden={h}: test MSE = {test_loss:.4f}")
+
+# ── MNIST Experiment ──────────────────────────────────────────────────────────
+from readinginMNIST import load_images, load_labels
+
+# Load MNIST data
+X_mnist_train = load_images("train-images-idx3-ubyte")
+y_mnist_train = load_labels("train-labels-idx1-ubyte")
+X_mnist_test = load_images("t10k-images-idx3-ubyte")
+y_mnist_test = load_labels("t10k-labels-idx1-ubyte")
+
+# Flatten 28x28 images to 784-element vectors
+X_mnist_train = X_mnist_train.reshape(X_mnist_train.shape[0], -1).astype(float) / 255.0
+X_mnist_test = X_mnist_test.reshape(X_mnist_test.shape[0], -1).astype(float) / 255.0
+
+# Use subset of 20,000 training examples to keep runtime manageable
+X_mnist_train = X_mnist_train[:20000]
+y_mnist_train = y_mnist_train[:20000]
+
+# ── 3a: 5 hidden units, 10 epochs, learning rates ────────────────────────────
+learning_rates = [1, 0.1, 1e-2, 1e-3, 1e-8]
+
+plt.figure()
+for lr in learning_rates:
+    nn = NeuralNetwork(input_size=784, hidden_size=5, output_size=10)
+    loss_history = nn.train(X_mnist_train, y_mnist_train, epochs=10, learning_rate=lr)
+    plt.plot(loss_history, label=f"LR={lr}")
+
+plt.title("MNIST Training Loss by Learning Rate (5 hidden units, 10 epochs)")
+plt.xlabel("Epoch")
+plt.ylabel("Average Cross-Entropy Loss")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# ── 3c: average test loss for each LR ────────────────────────────────────────
+print("3c. Test losses by learning rate:")
+for lr in learning_rates:
+    nn = NeuralNetwork(input_size=784, hidden_size=5, output_size=10)
+    nn.train(X_mnist_train, y_mnist_train, epochs=10, learning_rate=lr)
+    z2 = nn.forward(X_mnist_test)
+    exp = np.exp(z2 - np.max(z2, axis=1, keepdims=True))
+    probs = exp / np.sum(exp, axis=1, keepdims=True)
+    test_loss = -np.mean(np.log(probs[range(len(X_mnist_test)), y_mnist_test] + 1e-8))
+    print(f"  LR={lr}: test loss = {test_loss:.4f}")
+
+# ── 3d: LR=1e-2, 10 epochs, 4 hidden sizes ───────────────────────────────────
+hidden_sizes = [2, 8, 16, 32]
+
+plt.figure()
+for h in hidden_sizes:
+    nn = NeuralNetwork(input_size=784, hidden_size=h, output_size=10)
+    loss_history = nn.train(X_mnist_train, y_mnist_train, epochs=10, learning_rate=1e-2)
+    plt.plot(loss_history, label=f"Hidden={h}")
+
+plt.title("MNIST Training Loss by Hidden Size (LR=1e-2, 10 epochs)")
+plt.xlabel("Epoch")
+plt.ylabel("Average Cross-Entropy Loss")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# ── 3e: test loss and accuracy for each hidden size ───────────────────────────
+print("3e. Test loss and accuracy by hidden size:")
+for h in hidden_sizes:
+    nn = NeuralNetwork(input_size=784, hidden_size=h, output_size=10)
+    nn.train(X_mnist_train, y_mnist_train, epochs=10, learning_rate=1e-2)
+    z2 = nn.forward(X_mnist_test)
+    exp = np.exp(z2 - np.max(z2, axis=1, keepdims=True))
+    probs = exp / np.sum(exp, axis=1, keepdims=True)
+    test_loss = -np.mean(np.log(probs[range(len(X_mnist_test)), y_mnist_test] + 1e-8))
+    accuracy = np.mean(np.argmax(z2, axis=1) == y_mnist_test)
+    print(f"  Hidden={h}: test loss = {test_loss:.4f}, accuracy = {accuracy * 100:.1f}%")
