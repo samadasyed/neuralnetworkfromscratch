@@ -119,4 +119,83 @@ class NeuralNetwork:
 
         return loss_history
 
-#This ends the base configuration spec
+# ── Iris Experiment ──────────────────────────────────────────────────────────
+
+# Load dataset
+url = "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"
+df = pd.read_csv(url, header=None)
+df.columns = ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'species']
+
+# Encode string labels to integers
+label_map = {'Iris-setosa': 0, 'Iris-versicolor': 1, 'Iris-virginica': 2}
+df['species'] = df['species'].map(label_map)
+
+X = df[['sepal_length', 'sepal_width', 'petal_length', 'petal_width']].values
+y = df['species'].values
+
+# 80/20 train/test split
+np.random.seed(0)
+indices = np.random.permutation(len(X))
+split = int(0.8 * len(X))
+X_train, X_test = X[indices[:split]], X[indices[split:]]
+y_train, y_test = y[indices[:split]], y[indices[split:]]
+
+# Helper: predict class labels
+def predict(nn, X):
+    z2 = nn.forward(X)
+    return np.argmax(z2, axis=1)
+
+# ── 1a: 5 hidden units, 10 epochs, 4 learning rates ──────────────────────────
+learning_rates = [1, 0.1, 1e-2, 1e-3, 1e-8]
+
+plt.figure()
+for lr in learning_rates:
+    nn = NeuralNetwork(input_size=4, hidden_size=5, output_size=3)
+    loss_history = nn.train(X_train, y_train, epochs=10, learning_rate=lr)
+    plt.plot(loss_history, label=f"LR={lr}")
+
+plt.title("Iris Training Loss by Learning Rate (5 hidden units, 10 epochs)")
+plt.xlabel("Epoch")
+plt.ylabel("Average Cross-Entropy Loss")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# ── 1c: average test loss for each LR ────────────────────────────────────────
+print("1c. Test losses by learning rate:")
+for lr in learning_rates:
+    nn = NeuralNetwork(input_size=4, hidden_size=5, output_size=3)
+    nn.train(X_train, y_train, epochs=10, learning_rate=lr)
+    z2 = nn.forward(X_test)
+    exp = np.exp(z2 - np.max(z2, axis=1, keepdims=True))
+    probs = exp / np.sum(exp, axis=1, keepdims=True)
+    test_loss = -np.mean(np.log(probs[range(len(X_test)), y_test] + 1e-8))
+    print(f"  LR={lr}: test loss = {test_loss:.4f}")
+
+# ── 1d: LR=1e-2, 10 epochs, 4 hidden sizes ───────────────────────────────────
+hidden_sizes = [2, 8, 16, 32]
+
+plt.figure()
+for h in hidden_sizes:
+    nn = NeuralNetwork(input_size=4, hidden_size=h, output_size=3)
+    loss_history = nn.train(X_train, y_train, epochs=10, learning_rate=1e-2)
+    plt.plot(loss_history, label=f"Hidden={h}")
+
+plt.title("Iris Training Loss by Hidden Size (LR=1e-2, 10 epochs)")
+plt.xlabel("Epoch")
+plt.ylabel("Average Cross-Entropy Loss")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# ── 1e: test loss and accuracy for each hidden size ───────────────────────────
+print("1e. Test loss and accuracy by hidden size:")
+for h in hidden_sizes:
+    nn = NeuralNetwork(input_size=4, hidden_size=h, output_size=3)
+    nn.train(X_train, y_train, epochs=10, learning_rate=1e-2)
+    z2 = nn.forward(X_test)
+    exp = np.exp(z2 - np.max(z2, axis=1, keepdims=True))
+    probs = exp / np.sum(exp, axis=1, keepdims=True)
+    test_loss = -np.mean(np.log(probs[range(len(X_test)), y_test] + 1e-8))
+    accuracy = np.mean(predict(nn, X_test) == y_test)
+    print(f"  Hidden={h}: test loss = {test_loss:.4f}, accuracy = {accuracy * 100:.1f}%")
