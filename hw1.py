@@ -22,11 +22,11 @@ class NeuralNetwork:
         """
         np.random.seed(0)
 
-        # Weights and biases for hidden layer
+        # Weights (W) and biases (b) for hidden layer
         self.W1 = np.random.uniform(-0.01, 0.01, (input_size, hidden_size))
         self.b1 = np.random.uniform(-0.01, 0.01, (1, hidden_size))
 
-        # Weights and biases for output layer
+        # Weights (W) and biases (b) for output layer
         self.W2 = np.random.uniform(-0.01, 0.01, (hidden_size, output_size))
         self.b2 = np.random.uniform(-0.01, 0.01, (1, output_size))
 
@@ -41,7 +41,7 @@ class NeuralNetwork:
             output: linear output of shape (batch_size, output_size)
         """
         # Hidden layer: linear transform then ReLU
-        self.z1 = X @ self.W1 + self.b1
+        self.z1 = X @ self.W1 + self.b1 #raw output of hidden layer before RELU is applied
         self.a1 = np.maximum(0, self.z1)  # ReLU activation
 
         # Output layer: linear transform only (no activation)
@@ -51,3 +51,25 @@ class NeuralNetwork:
         self.input = X
 
         return self.z2
+
+    def backward(self, dL_dz2):
+        """
+        Backward pass — compute gradients for all weights and biases.
+
+        Args:
+            dL_dz2: gradient of the loss w.r.t. the output z2, shape (batch_size, output_size)
+                    computed externally by the loss function
+        """
+        # Output layer gradients
+        self.dW2 = self.a1.T @ dL_dz2          # gradient w.r.t. W2: (hidden_size, output_size)
+        self.db2 = np.sum(dL_dz2, axis=0, keepdims=True)  # sum across batch: (1, output_size)
+
+        # Flow error back through W2 to reach the hidden layer
+        self.da1 = dL_dz2 @ self.W2.T          # gradient w.r.t. a1: (batch_size, hidden_size)
+
+        # Apply ReLU mask: neurons that were inactive (z1 <= 0) block the gradient
+        self.dz1 = self.da1 * (self.z1 > 0)    # gradient w.r.t. z1: (batch_size, hidden_size)
+
+        # Hidden layer gradients
+        self.dW1 = self.input.T @ self.dz1     # gradient w.r.t. W1: (input_size, hidden_size)
+        self.db1 = np.sum(self.dz1, axis=0, keepdims=True)  # sum across batch: (1, hidden_size)
